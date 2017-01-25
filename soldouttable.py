@@ -13,7 +13,6 @@ class FortuneMusic():
     ROOT_PATH = "https://fortunemusic.jp/"
     def __init__(self):
         self.opener = build_opener(HTTPCookieProcessor(CookieJar()))
-        #opener = build_opener()
 
         self.current_html = None
         self.current_path = None
@@ -51,11 +50,14 @@ class FortuneMusic():
             return self.opener.open(url, data).read()
 
     def get_sale_state(self):
-        pq = PQ(self.current_html)
-        contents = pq(".tab_content")[1:]
+        if self.current_path == self.ROOT_PATH:return
+
         fname = self._generate_filename_from_path(self.current_path)
+        print()
         print(fname)
         with open(fname + ".csv","w") as f:
+            pq = PQ(self.current_html)
+            contents = pq(".tab_content")[1:]
             for content in contents:
                 content = PQ(content)
                 #print(PQ(content.find("font")[0]).text())
@@ -136,17 +138,20 @@ class FortuneMusic():
                 if "受付中" in a_tag.text():
                     return a_tag.attr("href")
         else:
-            if len(pq(".statusInfo")): print("not sale")
-            else: print("invalid path")
-            return self.ROOT_PATH
+            if len(pq(".statusInfo")): print("\nNot sale\n")
+            else: print("\nInvalid path\n")
+            return ""
 
     def _path_concatenation(self, path1, path2):
         path = path1 + path2
-        return "http://" + path[8:].replace("//", "/")
+        head_index = path.find("//")+2
+        return path[:head_index] + path[head_index:].replace("//", "/")
 
     def _generate_filename_from_path(self, path):
-        fname = path.replace("http://","")
-        fname = fname.replace("https://","")
+        if path.find(self.ROOT_PATH) > -1:
+            fname = path[len(self.ROOT_PATH):]
+        else:
+            fname = path.replace(':','') # just in case
         fname = fname.replace("/","_")
         return fname
 
@@ -155,21 +160,18 @@ def fortunemusic():
     fm = FortuneMusic()
 
     fm.login()
-    #fm.print_current_html()
 
-    #fm.set_path(filename = "source.txt")
-    #fm.set_path(filename = "source_nmb.html")
-    #fm.set_path(url = "https://fortunemusic.jp/nmb48_201612_koaku/13/goods_list/")
-    #fm.print_current_html()
-    #
-    #fm.get_sale_state()
-
+    # set default path
     fm.set_path()
+
+    # print exist event list
     for i, url in enumerate(fm._get_events()):
         print(str(i) + '. ' + url[1])
         print("  -> " + url[0])
+
+    # save sale state for csv
     for url in fm._get_events():
-        if "nmb" in url[0]:
+        if "keyaki" in url[0]:
             path = fm._path_concatenation(fm.ROOT_PATH, url[0])
             fm.set_path(url = path)
             path = fm._get_koaku_page_path()
@@ -178,7 +180,6 @@ def fortunemusic():
             fm.set_path(url = path)
             fm.get_sale_state()
             break
-    #fm.print_current_html()
 
 if __name__ in "__main__":
     fortunemusic()
