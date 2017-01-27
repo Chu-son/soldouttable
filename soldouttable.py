@@ -6,7 +6,87 @@ from pyquery import PyQuery as PQ
 
 import time
 import os
+import json
 from getpass import getpass
+
+
+class DataContainer():
+    class ScheduleContainer():
+        def __init__(self, schedule_name):
+            self.schedule_name = schedule_name
+            self.table_list = []
+
+        def append(self, row):
+            self.table_list.append(row)
+
+    def __init__(self, container_name):
+        self.container_name = container_name
+
+        self.schedules = []
+        self.infos = []
+
+        self.row_buf = []
+
+    def append_info(self, info):
+        self.infos.append(info)
+
+    def append_schedule(self, name):
+        self.schedules.append(self.ScheduleContainer(name))
+
+    def append_row_buffer(self, data):
+        self.row_buf.append(data)
+
+    def end_row(self):
+        self.schedules[-1].append(self.row_buf)
+        self.row_buf=[]
+
+    def print_schedules(self):
+        for schedule in self.schedules:
+            print(schedule.schedule_name)
+            for row in schedule.table_list:
+                for data in row:
+                    print(data, end=' ')
+                print()
+            print()
+
+    def _organize_datas(self):
+        self.max_cols = 0
+        self.max_rows = 0
+        self.member_list = []
+        self.header = []
+        for schedule in self.schedules:
+            self.max_rows = max(self.max_rows, len(schedule.table_list))
+            if len(schedule.table_list) != 0 :
+                self.max_cols = max(self.max_cols, len(schedule.table_list[0]))
+                self.header = schedule.table_list[0]
+
+                if len(self.member_list) == 0:
+                    for row in schedule.table_list:
+                        self.member_list.append(row[0])
+
+    def save_csv(self):
+        self._organize_datas()
+        with open(self.container_name + "_2.csv", "w") as f:
+            f.write(',')
+            for sch in self.schedules:
+                f.write(sch.schedule_name + ',')
+                f.write(','*(self.max_cols-2))
+            else:f.write('\n')
+            
+            header = ""
+            for h in self.header[1:]:
+                header += h+','
+            f.write(',' + header*len(self.schedules) + '\n')
+
+            for index in range(1, self.max_rows):
+                f.write(self.member_list[index] + ',')
+                for sch in self.schedules:
+                    if len(sch.table_list) == 0:
+                        f.write('-,'*(self.max_cols-1))
+                    else:
+                        for data in sch.table_list[index][1:]:
+                            f.write(data + ',')
+                f.write('\n')
 
 
 class FortuneMusic():
@@ -20,14 +100,15 @@ class FortuneMusic():
     def login(self):
         if os.path.exists(".loginInfo"):
             with open(".loginInfo", 'r') as f:
-                name = f.readline()
-                pwd = f.readline()
+                info = json.load(f)
+                name = info["name"]
+                pwd = info["pwd"]
         else:
             name = input("Id:")
             pwd = getpass("Password:")
 
         data = {
-                "login_id":name, 
+                "login_id":name,
                 "login_pw":pwd
                 }
 
@@ -55,6 +136,8 @@ class FortuneMusic():
         fname = self._generate_filename_from_path(self.current_path)
         print()
         print(fname)
+
+        container = DataContainer(fname)
         with open(fname + ".csv","w") as f:
             pq = PQ(self.current_html)
             contents = pq(".tab_content")[1:]
@@ -62,34 +145,42 @@ class FortuneMusic():
                 content = PQ(content)
                 #print(PQ(content.find("font")[0]).text())
                 f.write(PQ(content.find("font")[0]).text() + ',\n')
+                container.append_schedule(PQ(content.find("font")[0]).text())
                 for table in content.find("table"):
                     for tr in PQ(table).find("tr"):
                         headers = PQ(tr).find("th")
                         for header in headers:
                             #print(PQ(header).text(), end = "")
                             f.write(PQ(header).text() + ',')
+                            container.append_row_buffer(PQ(header).text())
                         datas = PQ(tr).find("td")
                         for data in datas:
                             data = PQ(data)
                             if data.has_class("member_name"):
                                 #print(data.text(), end = "")
                                 f.write(data.text() + ',')
+                                container.append_row_buffer(data.text())
                             if data.has_class("btn_area"):
                                 if len(data("select")) != 0:
                                     #print(" o ", end = "")
                                     f.write('o,')
+                                    container.append_row_buffer('o')
                                 elif "-" in data.text():
                                     #print(" - ", end = "")
                                     f.write('-,')
+                                    container.append_row_buffer('-')
                                 else:
                                     #print(" x ", end = "")
                                     f.write('x,')
+                                    container.append_row_buffer('x')
                         else:
                             #print()
                             f.write('\n')
+                            container.end_row()
                     else:
                         #print()
                         f.write('\n')
+        return container
 
     def set_path(self, *, url = None, data = None, filename = None):
         if url is not None:
@@ -178,8 +269,11 @@ def fortunemusic():
 
             path = fm._path_concatenation(fm.ROOT_PATH, path)
             fm.set_path(url = path)
-            fm.get_sale_state()
+            container = fm.get_sale_state()
             break
+
+    #container.print_schedules()
+    container.save_csv()
 
 if __name__ in "__main__":
     fortunemusic()
