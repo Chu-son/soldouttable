@@ -10,204 +10,135 @@ import json
 from getpass import getpass
 
 
-class DataContainers():
-    class Member():
-        def __init__(self, name):
-            self.name = name
-            self.schedule_list = []
-
-class Container():
-    def __init__(self, name):
-        self.name = name
-        self.data_list = []
-
 class DataContainer():
     class ScheduleContainer():
         class Table():
-            def __init__(self):
-                pass
+            def __init__(self, table_name):
+                self.name = table_name
+
+                self.member_list = []
+                self.headline_list = []
+                self._table_dict = {}
+
             def append_headline(self, headline):
-                pass
+                self.headline_list.append(headline)
+
             def new_member(self, name):
-                pass
+                self.member_list.append(name)
+                if name in self._table_dict:
+                    return False
+                else:
+                    self._table_dict[name] = []
+                    return self._table_dict[name]
+
+            #def append_state(self, member, state):
             def append_state(self, state):
-                pass
+                member = self.member_list[-1]
+                self._table_dict[member].append(state)
+
+            def get_state(self, member):
+                if member in self.member_list:
+                    return self._table_dict[member]
+                else:
+                    return [''] * len(self.headline_list)
 
         def __init__(self, schedule_name):
             self.schedule_name = schedule_name
-            self.raw_table_list = []
+            self.table_list = []
 
-        def new_table(self):
-            self.raw_table_list.append(self.Table())
-
-        def new_member(self, 
-        def append_headline(self, headline):
-            self.raw_table_list[-1].append_headline(headline)
-
-        def append(self, row):
-            self.raw_table_list.append(row)
-
-        def organize_table(self):
-
+        def new_table(self, table_name=None):
+            self.table_list.append(self.Table(table_name))
+            return self.table_list[-1]
 
     def __init__(self, container_name):
         self.container_name = container_name
 
         self.schedules = []
         self.infos = []
-
-        self.row_buf = []
 
     def append_info(self, info):
         self.infos.append(info)
 
     def new_schedule(self, name):
         self.schedules.append(self.ScheduleContainer(name))
-
-    def new_table(self):
-        self.schedules[-1].new_table()
-
-    def append_row_buffer(self, data):
-        self.row_buf.append(data)
-
-    def end_row(self):
-        self.schedules[-1].append(self.row_buf)
-        self.row_buf=[]
+        return self.schedules[-1]
 
     def print_schedules(self):
         for schedule in self.schedules:
             print(schedule.schedule_name)
-            for row in schedule.table_list:
-                for data in row:
-                    print(data, end=' ')
+            for table in schedule.table_list:
+                print(table.name + ", ", end=' ')
+                for headline in table.headline_list:
+                    print(headline + ", ", end=' ')
                 print()
+                for member in table.member_list:
+                    print(member, end=' ')
+                    for state in table._table_dict[member]:
+                        print(state, end=' ')
+                    print()
             print()
 
     def _organize_datas(self):
-        self.max_cols = 0
-        self.max_rows = 0
-        self.member_list = []
-        self.header = []
-        for schedule in self.schedules:
-            self.max_rows = max(self.max_rows, len(schedule.table_list))
-            if len(schedule.table_list) != 0 :
-                self.max_cols = max(self.max_cols, len(schedule.table_list[0]))
-                self.header = schedule.table_list[0]
+        table_labels = {}
+        for sch in self.schedules:
+            for table in sch.table_list:
+                if not table.name in table_labels:
+                    table_labels[table.name] = [x for x in table.member_list]
+                else:
+                    self._organize_members(table_labels[table.name], table.member_list)
 
-                if len(self.member_list) == 0:
-                    for row in schedule.table_list:
-                        self.member_list.append(row[0])
+        _key = "schedules"
+        tables = {_key:[]}
+        for sch in self.schedules:
+            table = []
+            for t in sch.table_list:
+                table_name = t.name
+                table_headline = [table_name] + t.headline_list
 
-    def save_csv(self):
-        self._organize_datas()
-        with open(self.container_name + "_2.csv", "w") as f:
-            f.write(',')
-            for sch in self.schedules:
-                f.write(sch.schedule_name + ',')
-                f.write(','*(self.max_cols-2))
-            else:f.write('\n')
-            
-            header = ""
-            for h in self.header[1:]:
-                header += h+','
-            f.write(',' + header*len(self.schedules) + '\n')
+                table.append(table_headline)
 
-            for index in range(1, self.max_rows):
-                f.write(self.member_list[index] + ',')
-                for sch in self.schedules:
-                    if len(sch.table_list) == 0:
-                        f.write('-,'*(self.max_cols-1))
-                    else:
-                        for data in sch.table_list[index][1:]:
-                            f.write(data + ',')
-                f.write('\n')
+                for member in table_labels[table_name]:
+                    table.append([member] + t.get_state(member))
 
+            tables[sch.schedule_name] = table
+            tables["rows"] = len(table)
+            tables[_key].append(sch.schedule_name)
+        return tables
 
-
-class __DataContainer():
-    class ScheduleContainer():
-        def __init__(self, schedule_name):
-            self.schedule_name = schedule_name
-            self.table_list = []
-
-            """
-            mamber
-            col_label
-            table_size
-            """
-
-        def append(self, row):
-            self.table_list.append(row)
-
-    def __init__(self, container_name):
-        self.container_name = container_name
-
-        self.schedules = []
-        self.infos = []
-
-        self.row_buf = []
-
-    def append_info(self, info):
-        self.infos.append(info)
-
-    def append_schedule(self, name):
-        self.schedules.append(self.ScheduleContainer(name))
-
-    def append_row_buffer(self, data):
-        self.row_buf.append(data)
-
-    def end_row(self):
-        self.schedules[-1].append(self.row_buf)
-        self.row_buf=[]
-
-    def print_schedules(self):
-        for schedule in self.schedules:
-            print(schedule.schedule_name)
-            for row in schedule.table_list:
-                for data in row:
-                    print(data, end=' ')
-                print()
-            print()
-
-    def _organize_datas(self):
-        self.max_cols = 0
-        self.max_rows = 0
-        self.member_list = []
-        self.header = []
-        for schedule in self.schedules:
-            self.max_rows = max(self.max_rows, len(schedule.table_list))
-            if len(schedule.table_list) != 0 :
-                self.max_cols = max(self.max_cols, len(schedule.table_list[0]))
-                self.header = schedule.table_list[0]
-
-                if len(self.member_list) == 0:
-                    for row in schedule.table_list:
-                        self.member_list.append(row[0])
+    def _organize_members(self, list1, list2):
+        for index, new_mem in enumerate(list2):
+            if new_mem not in list1:
+                i = index
+                while i != 0:
+                    i -= 1
+                    if list2[i] in list1:
+                        i = list1.index(list2[i])
+                        break
+                list1.insert(i+1,new_mem)
 
     def save_csv(self):
-        self._organize_datas()
-        with open(self.container_name + "_2.csv", "w") as f:
-            f.write(',')
+        tables = self._organize_datas()
+
+        with open(self.container_name + "_4.csv", "w") as f:
+            line = ','
             for sch in self.schedules:
-                f.write(sch.schedule_name + ',')
-                f.write(','*(self.max_cols-2))
-            else:f.write('\n')
-            
-            header = ""
-            for h in self.header[1:]:
-                header += h+','
-            f.write(',' + header*len(self.schedules) + '\n')
+                line += sch.schedule_name + ','
+                if len(sch.table_list) != 0:
+                    line += ','*(len(sch.table_list[0].headline_list)-1)
+            line += '\n'
+            f.write(line)
 
-            for index in range(1, self.max_rows):
-                f.write(self.member_list[index] + ',')
-                for sch in self.schedules:
-                    if len(sch.table_list) == 0:
-                        f.write('-,'*(self.max_cols-1))
-                    else:
-                        for data in sch.table_list[index][1:]:
-                            f.write(data + ',')
-                f.write('\n')
+            rows = [row_label[0] + ',' for row_label in tables[tables["schedules"][-1]]]
+            for sch_key in tables["schedules"]:
 
+                if len(tables[sch_key]) == 0:
+                    rows[0] += "受付終了,"
+                    for i in range(1, len(rows)):
+                        rows[i] += ','
+
+                for i, row in enumerate(tables[sch_key]):
+                    rows[i] += ','.join(row[1:]) + ','
+            f.write('\n'.join(rows))
 
 class FortuneMusic():
     ROOT_PATH = "https://fortunemusic.jp/"
@@ -248,7 +179,7 @@ class FortuneMusic():
         else:
             self.current_path = url
             data = urlencode(data).encode("utf-8") if data is not None else data
-            return self.opener.open(url, data).read()
+            return self.opener.open(url, data).read().decode("utf-8")
 
     def get_sale_state(self):
         if self.current_path == self.ROOT_PATH:return
@@ -258,7 +189,7 @@ class FortuneMusic():
         print(fname)
 
         container = DataContainer(fname)
-        with open(fname + ".csv","w") as f:
+        with open(fname + "_3.csv","w") as f:
             pq = PQ(self.current_html)
             # 個握販売状況抽出(会場ごと)
             contents = pq(".tab_content")[1:]
@@ -267,46 +198,59 @@ class FortuneMusic():
                 # 日付と会場名取得
                 #print(PQ(content.find("font")[0]).text())
                 f.write(PQ(content.find("font")[0]).text() + ',\n')
-                container.append_schedule(PQ(content.find("font")[0]).text())
+                schedules = container.new_schedule(PQ(content.find("font")[0]).text())
 
                 # 販売状況の表抽出
                 for table in content.find("table"):
+                    table_container = schedules.new_table()
                     # 表中の行を抽出
                     for tr in PQ(table).find("tr"):
                         # 行からヘッダ(列の見出し)抽出
                         headers = PQ(tr).find("th")
                         for header in headers:
+                            h_text = PQ(header).text()
+                            if table_container.name is None:
+                                table_container.name = h_text
+
+                            else:
+                                table_container.append_headline(h_text)
+
                             #print(PQ(header).text(), end = "")
                             f.write(PQ(header).text() + ',')
-                            container.append_row_buffer(PQ(header).text())
+                            #container.append_row_buffer(PQ(header).text())
 
                         # 行からデータ抽出
                         datas = PQ(tr).find("td")
                         for data in datas:
                             data = PQ(data)
                             if data.has_class("member_name"):
+                                member_name = data.text()
                                 #print(data.text(), end = "")
                                 f.write(data.text() + ',')
-                                container.append_row_buffer(data.text())
+                                #container.append_row_buffer(data.text())
+                                table_container.new_member(member_name)
 
                             # 販売状況
                             if data.has_class("btn_area"):
                                 if len(data("select")) != 0:
                                     #print(" o ", end = "")
                                     f.write('o,')
-                                    container.append_row_buffer('o')
+                                    #container.append_row_buffer('o')
+                                    table_container.append_state('o')
                                 elif "-" in data.text():
                                     #print(" - ", end = "")
                                     f.write('-,')
-                                    container.append_row_buffer('-')
+                                    #container.append_row_buffer('-')
+                                    table_container.append_state('-')
                                 else:
                                     #print(" x ", end = "")
                                     f.write('x,')
-                                    container.append_row_buffer('x')
+                                    #container.append_row_buffer('x')
+                                    table_container.append_state('x')
                         else:
                             #print()
                             f.write('\n')
-                            container.end_row()
+                            #container.end_row()
                     else:
                         #print()
                         f.write('\n')
@@ -323,15 +267,16 @@ class FortuneMusic():
     def print_current_html(self):
         if self.current_html is None:return
 
-        html = self.current_html.decode("utf-8") if isinstance(self.current_html, bytes)\
-                                                    else self.current_html
+        html = self.current_html 
         print(html)
 
     def save_html(self):
-        pass
+        fname = self._generate_filename_from_path(self.current_path)
+        with open(fname + ".html", "w") as f:
+            f.write(self.current_html)
 
     def _get_events(self):
-        pq = PQ(self.current_html.decode("utf-8"))
+        pq = PQ(self.current_html)
         urls = []
 
         eventblock = pq("#eventInfoArea")[0]
@@ -350,8 +295,6 @@ class FortuneMusic():
         pass
     
     def _get_koaku_page_path(self):
-        self.current_html = self.current_html.decode("utf-8")
-
         pq = PQ(self.current_html)
         for statusinfo in pq(".statusInfo"):
             for a_tag in PQ(statusinfo)('a'):
@@ -401,10 +344,18 @@ def fortunemusic():
             path = fm._path_concatenation(fm.ROOT_PATH, path)
             fm.set_path(url = path)
             container = fm.get_sale_state()
-            break
 
-    #container.print_schedules()
+            #container.print_schedules()
+            container.save_csv()
+            fm.save_html()
+    
+    """
+    fm.set_path(filename = "keyakizaka46_201704_1_goods_list_.html")
+    #fm.print_current_html()
+    container = fm.get_sale_state()
+    container.print_schedules()
     container.save_csv()
+    """
 
 if __name__ in "__main__":
     fortunemusic()
